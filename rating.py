@@ -69,12 +69,46 @@ driver = webdriver.Chrome(options=options)
 #     for cookie in cookies:
 #         driver.add_cookie(cookie)
 # with open("data2.txt",'w',encoding='utf-8')as file2:
-script = """
-var div1 = document.querySelector('div.dq3izqp.atm_7l_12u4tyr.atm_cs_atq67q.atm_l8_1s5ai0k.dir.dir-ltr'); // 定位到第一个div
-var text = div1.nextSibling.textContent; // 获取第一个div后的下一个兄弟节点的文本内容
-return text;
-"""
+# script = """
+# var dates = [];
+# var commentDivs = document.querySelectorAll('div.dq3izqp.atm_7l_12u4tyr.atm_cs_atq67q.atm_l8_1s5ai0k.dir.dir-ltr');
+# commentDivs.forEach(function(div) {
+#     // 从当前div开始查找下一个兄弟节点，跳过非元素节点（如文本节点、空白、换行等）
+#     var nextElement = div.nextElementSibling;
+#     // 检查找到的下一个元素是否是我们要找的日期容器，这里可能需要根据实际情况调整逻辑
+#     // 假设日期是以文本形式直接位于下一个div中，这里简单地获取其textContent
+#     // 如果结构更复杂，可能需要进一步的逻辑来确保获取正确的文本
+#     if (nextElement && nextElement.classList.contains('some-class-for-date')) { // 请根据实际情况调整这里的条件
+#         dates.push(nextElement.textContent.trim());
+#     }
+# });
+# return dates;
+# """
+# script = """
+# var div1 = document.querySelectorAll('div.dq3izqp.atm_7l_12u4tyr.atm_cs_atq67q.atm_l8_1s5ai0k.dir.dir-ltr'); // 定位到第一个div
+# var text = div1.nextSibling.textContent; // 获取第一个div后的下一个兄弟节点的文本内容
+# return text;
+# """
 
+script = """
+    var comment = arguments[0];  // 从外部获取当前评论元素
+    var div1 = comment.querySelector('div.d1joulhb.atm_7l_12u4tyr.atm_cs_atq67q.atm_l8_1s5ai0k.dir.dir-ltr'); // 在当前评论内查找div1
+    var node = div1.nextSibling;
+    var dateText = "";
+    while(node) {
+        if (node.nodeType === 3) {
+            var text = node.textContent.trim();
+            if(text) {
+                dateText = text;
+                break;
+            }
+        } else if(node.matches('.div2')) {
+            break;
+        }
+        node = node.nextSibling;
+    }
+    return dateText;
+    """
 
 # 解析文本数据并存储到列表中
 def parse(data):
@@ -87,28 +121,27 @@ def parse(data):
             record[key.strip()] = value.strip()
         parsed_data.append(record)
     return parsed_data
-    
-for i in range(0,1):
+for i in range(458,500):
     cnt=0
     data = set()
     # 打开网页
     except_cnt=0
     driver.get(url_list[i]+"/?locale=en")
     listing_id = url_list[i].split('/')[-1]  # 分割URL并获取最后一部分
-    filename = 'rate_res.csv'
+    filename = 'Done_NYC_rws4scrape.csv'
     fieldnames = ['listing_id', 'listing_url', 'reviewer_id', 'date', 'reviewer_name','review_id', 'location', 'rating', 'response']
     file_exists = os.path.exists(filename) and os.path.getsize(filename) > 0
     # 使用WebDriverWait等待按钮可见
-    time.sleep(2)
+    time.sleep(4)
     try:
         btn_close=driver.find_element(By.XPATH, "//button[@aria-label='Close']")
         btn_close.click()
-        time.sleep(0.6)
+        time.sleep(0.4)
     except:
         pass
     try:
         btn2=driver.find_element(By.XPATH,"//button[contains(text(),'review')]")
-        print(btn2.text)
+        print(url_list[i]+" "+btn2.text)
         # btn2=wait.until(EC.visibility_of_element_located((By.XPATH,"//button[contains(text(),'review')]")))
         btn2.click()
     except Exception as e:
@@ -116,7 +149,7 @@ for i in range(0,1):
         print(url_list[i])
         print("No more reviews")
     html_after_click = driver.page_source
-    time.sleep(0.4)
+    time.sleep(0.3)
     wait = WebDriverWait(driver,3)
 
     try:
@@ -134,9 +167,10 @@ for i in range(0,1):
                     writer.writeheader()
                 # 注意：writerow接受一个list作为参数
                 # writer.writerow([url_list[i], "is invalid"])
-                comments = driver.find_elements(By.CSS_SELECTOR, "div.rijjzz2")
+                comments = driver.find_elements(By.CSS_SELECTOR, "div._b7zir4z")
+                print(22)
                 for comment in comments:
-                    element = driver.find_element(By.CLASS_NAME, "t11wgnhd")    
+                    element = driver.find_element(By.CLASS_NAME, "t9gtck5")    
                     # 获取元素的id属性值
                     element_id = element.get_attribute("id")
 
@@ -144,14 +178,16 @@ for i in range(0,1):
                     match = re.search(r'review_(\d+)_title', element_id)
                     if match:
                         review_id = match.group(1)
-                        print(review_id)
+                        # print(review_id)
                     else:
                         print("ID not found")
                     reviewer_id= Extract_userid(comment)
-                    date_text = driver.execute_script(script)
+                    date_text = driver.execute_script(script,comment)
+                    # for date_text in date_texts:
+                    #     print(date_text)
                     name_element = comment.find_element(By.CSS_SELECTOR, "h3.hpipapi")
                     name = name_element.text
-                    location = comment.find_element(By.CSS_SELECTOR, "div.s9v16xq").text
+                    location = comment.find_element(By.CSS_SELECTOR, "div.s15w4qkt").text
                     try:
                         rating = comment.find_element(By.CSS_SELECTOR, "span.a8jt5op").text  
                     except NoSuchElementException:
@@ -161,16 +197,21 @@ for i in range(0,1):
                         response = remove_empty_lines(response_element.text)
                     except NoSuchElementException:
                         response = ""
-                    data.add((f"listing_id：{listing_id}。 listing_url：{url_list[i]}。 reviewer_id：{reviewer_id}。 date：{date_text}。 reviewer_name：{name}。 review_id：{review_id}。 location：{location}。 rating：{rating}。 response：{response}"))
                     
-                    parsed_data=parse(data)
-                   
+                    data.add((f"listing_id：{listing_id}。 listing_url：{url_list[i]}。 reviewer_id：{reviewer_id}。 date：{date_text}。 reviewer_name：{name}。 review_id：{review_id}。 location：{location}。 rating：{rating}。 response：{response}"))
+                    cnt=cnt+1
+                    # print(f"listing_id：{listing_id}。 listing_url：{url_list[i]}。 reviewer_id：{reviewer_id}。 date：{date_text}。 reviewer_name：{name}。 review_id：{review_id}。 location：{location}。 rating：{rating}。 response：{response}")
+                parsed_data=parse(data)
+                # print(cnt)
                     # writer = csv.DictWriter(file3, fieldnames=fieldnames)
                     # 如果文件不存在或为空，则写入header
-                    
-                    for row in parsed_data:
-                        writer.writerow(row)
-
+                cnt2=0
+                for row in parsed_data:
+                    writer.writerow(row)
+                    cnt2=cnt2+1
+                if(cnt!=cnt2):
+                    print(f"cnt: "+cnt+"cnt2: "+cnt2)
+            
     if(except_cnt==2):
         continue
     last_height = driver.execute_script("return arguments[0].scrollHeight", panel)
@@ -181,9 +222,9 @@ for i in range(0,1):
         actions.move_to_element(panel).click().send_keys(Keys.PAGE_DOWN).perform()
         new_height = driver.execute_script("return arguments[0].scrollHeight", panel)
         # print(new_height)
-        time.sleep(0.4)
+        time.sleep(0.5)
         # wait = WebDriverWait(driver, 3) 
-        if(page==10):
+        if(page==13):
             page=0
             if(new_height==last_height):
                 
@@ -264,20 +305,19 @@ for i in range(0,1):
         # # button.click()
 
         # time.sleep(10)
-        # wait = WebDriverWait(driver, 10)
-        # 获取点击按钮后的HTML内容
-    html_after_click = driver.page_source
+        wait = WebDriverWait(driver, 5)
 
         # with open("page2.html",'w',encoding='utf-8')as file:
         #     file.write(html_after_click)
 
 
         # 定位评论的容器元素
+    # reviews_container = WebDriverWait(driver, 10).until(EC.visibility_of_element_located((By.CSS_SELECTOR, 'div[data-testid="pdp-reviews-modal-scrollable-panel"]')))
     reviews_container = driver.find_element(By.CSS_SELECTOR, 'div[data-testid="pdp-reviews-modal-scrollable-panel"]')
 
         # 在该容器内寻找所有评论
     comments = reviews_container.find_elements(By.CSS_SELECTOR, "div.r1are2x1.atm_gq_1vi7ecw.dir.dir-ltr")
-
+    # comments = WebDriverWait(driver, 10).until(EC.visibility_of_element_located((By.CSS_SELECTOR, "div.r1are2x1.atm_gq_1vi7ecw.dir.dir-ltr")))
     
     
 
@@ -286,9 +326,10 @@ for i in range(0,1):
         # 注意：这里的选择器需要根据实际网页结构进行调整
             # username = comment.find_element(By.CSS_SELECTOR, "h3.hpipapi").text  
         review_id = comment.get_attribute("data-review-id")
-        location = comment.find_element(By.CSS_SELECTOR, "div.s9v16xq").text
-        date_text = comment.execute_script(script)
-            
+        location = comment.find_element(By.CSS_SELECTOR, "div.s15w4qkt").text
+        date_text = driver.execute_script(script,comment)
+        # for date_text in date_texts:
+        #     print(date_text)
         try:
             rating = comment.find_element(By.CSS_SELECTOR, "span.a8jt5op").text  
         except NoSuchElementException:
@@ -323,12 +364,12 @@ for i in range(0,1):
     #     parsed_data.append(record)
     parsed_data=parse(data)
         
-    # filename = 'rate_res.csv'
+    # filename = 'Done_NYC_rws4scrape.csv'
     # fieldnames = ['listing_id', 'listing_url', 'reviewer_id', 'date', 'reviewer_name','review_id', 'location', 'rating', 'response']
     # 检查文件是否存在且不为空
     file_exists = os.path.exists(filename) and os.path.getsize(filename) > 0
         # 写入CSV文件
-    with open('rate_res.csv', 'a+', newline='', encoding='utf-8') as file3:
+    with open('Done_NYC_rws4scrape.csv', 'a+', newline='', encoding='utf-8') as file3:
         writer = csv.DictWriter(file3, fieldnames=fieldnames)
         # 如果文件不存在或为空，则写入header
         if not file_exists:
@@ -336,8 +377,8 @@ for i in range(0,1):
         for row in parsed_data:
             writer.writerow(row)
         
-    
-    print(cnt)
+    if(str(cnt) not in btn2.text):
+        print(cnt)
 # 关闭WebDriver
 driver.quit()
 
