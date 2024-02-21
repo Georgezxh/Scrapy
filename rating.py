@@ -22,7 +22,18 @@ import re
 import pickle
 from selenium.webdriver.chrome.options import Options
 
+def get_rating(rating_text):
+    
 
+    # 使用正则表达式匹配 "Rating, 数字 stars"
+    match = re.search(r"Rating, (\d+) stars", rating_text)
+
+    if match:
+        # 提取匹配到的数字
+        rating = match.group(1)
+        return rating
+    else:
+        return "infor_under_name"
 
 def Extract_userid(comment):
     a_tag = comment.find_element(By.CSS_SELECTOR, "a[href*='/users/show/']")
@@ -44,7 +55,7 @@ def remove_empty_lines(text):
     return '\n'.join(non_empty_lines)
 
 # 读取 CSV 文件
-df = pd.read_csv('src/rws4scrape.csv')
+df = pd.read_csv('rws4scrape.csv')
 
 # 提取 'listing_url' 列并去重
 unique_urls = df['listing_url'].unique()
@@ -110,6 +121,26 @@ script = """
     return dateText;
     """
 
+script_with_no_ratings = """
+    var comment = arguments[0];  // 从外部获取当前评论元素
+    var div1 = comment.querySelector('div.s78n3tv.atm_c8_1w0928g.atm_g3_1dd5bz5.atm_cs_qo5vgd.atm_9s_1txwivl.atm_h_1h6ojuz.dir.dir-ltr'); // 在当前评论内查找div1
+    var node = div1.nextSibling;
+    var dateText = "";
+    while(node) {
+        if (node.nodeType === 3) {
+            var text = node.textContent.trim();
+            if(text) {
+                dateText = text;
+                break;
+            }
+        } else if(node.matches('.div2')) {
+            break;
+        }
+        node = node.nextSibling;
+    }
+    return dateText;
+    """
+
 # 解析文本数据并存储到列表中
 def parse(data):
     parsed_data = []
@@ -121,15 +152,15 @@ def parse(data):
             record[key.strip()] = value.strip()
         parsed_data.append(record)
     return parsed_data
-for i in range(458,500):
+for i in range(2903,3000):
     cnt=0
     data = set()
     # 打开网页
     except_cnt=0
     driver.get(url_list[i]+"/?locale=en")
     listing_id = url_list[i].split('/')[-1]  # 分割URL并获取最后一部分
-    filename = 'Done_NYC_rws4scrape.csv'
-    fieldnames = ['listing_id', 'listing_url', 'reviewer_id', 'date', 'reviewer_name','review_id', 'location', 'rating', 'response']
+    filename = 'prev.csv'
+    fieldnames = ['listing_id', 'listing_url', 'reviewer_id', 'date', 'reviewer_name','review_id', 'infor_under_name', 'rating', 'response']
     file_exists = os.path.exists(filename) and os.path.getsize(filename) > 0
     # 使用WebDriverWait等待按钮可见
     time.sleep(4)
@@ -141,13 +172,12 @@ for i in range(458,500):
         pass
     try:
         btn2=driver.find_element(By.XPATH,"//button[contains(text(),'review')]")
-        print(url_list[i]+" "+btn2.text)
+        print(url_list[i]+" "+btn2.text+" "+str(i))
         # btn2=wait.until(EC.visibility_of_element_located((By.XPATH,"//button[contains(text(),'review')]")))
         btn2.click()
     except Exception as e:
         except_cnt=except_cnt+1
-        print(url_list[i])
-        print("No more reviews")
+        print(url_list[i]+" No more reviews")
     html_after_click = driver.page_source
     time.sleep(0.3)
     wait = WebDriverWait(driver,3)
@@ -158,7 +188,7 @@ for i in range(458,500):
         except_cnt=except_cnt+1
         if(except_cnt==2):
             with open(filename, 'a+', newline='', encoding='utf-8') as file3:
-                # writer = csv.DictWriter(file3, fieldnames=['listing_id', 'listing_url', 'reviewer_id', 'reviewer_name','review_id', 'location', 'rating', 'response'])
+                # writer = csv.DictWriter(file3, fieldnames=['listing_id', 'listing_url', 'reviewer_id', 'reviewer_name','review_id', 'infor_under_name', 'rating', 'response'])
                 # writer.writerow(url_list[i]+" is invalid")
                 # continue
                 # writer = csv.writer(file3,fieldnames=fieldnames)
@@ -168,7 +198,6 @@ for i in range(458,500):
                 # 注意：writerow接受一个list作为参数
                 # writer.writerow([url_list[i], "is invalid"])
                 comments = driver.find_elements(By.CSS_SELECTOR, "div._b7zir4z")
-                print(22)
                 for comment in comments:
                     element = driver.find_element(By.CLASS_NAME, "t9gtck5")    
                     # 获取元素的id属性值
@@ -187,20 +216,34 @@ for i in range(458,500):
                     #     print(date_text)
                     name_element = comment.find_element(By.CSS_SELECTOR, "h3.hpipapi")
                     name = name_element.text
-                    location = comment.find_element(By.CSS_SELECTOR, "div.s15w4qkt").text
+                    infor_under_name = comment.find_element(By.CSS_SELECTOR, "div.s15w4qkt").text
                     try:
-                        rating = comment.find_element(By.CSS_SELECTOR, "span.a8jt5op").text  
+                        rating_text = comment.find_element(By.CSS_SELECTOR, "span.a8jt5op").text
+                        rating=get_rating(rating_text)  
                     except NoSuchElementException:
                         rating = ""
+                    try:
+                        rating_text = comment.find_element(By.CSS_SELECTOR, "span.a8jt5op").text 
+                        if(rating_text==',' or rating_text==""):
+                        # date_text=driver.execute_script(script_with_no_ratings,comment)
+                            date_text=comment.find_element(By.CSS_SELECTOR,'.s78n3tv').text.split('\n')[0]
+                            rating=rating_text
+                        else:
+                            rating=get_rating(rating_text) 
+                            date_text = driver.execute_script(script,comment)
+                
+                    except NoSuchElementException:
+                        rating = ""
+                        date_text=comment.find_element(By.CSS_SELECTOR,'.s78n3tv').text.split('\n')[0]
                     try:
                         response_element = comment.find_element(By.CSS_SELECTOR, "div.rzrvevs")
                         response = remove_empty_lines(response_element.text)
                     except NoSuchElementException:
                         response = ""
                     
-                    data.add((f"listing_id：{listing_id}。 listing_url：{url_list[i]}。 reviewer_id：{reviewer_id}。 date：{date_text}。 reviewer_name：{name}。 review_id：{review_id}。 location：{location}。 rating：{rating}。 response：{response}"))
+                    data.add((f"listing_id：{listing_id}。 listing_url：{url_list[i]}。 reviewer_id：{reviewer_id}。 date：{date_text}。 reviewer_name：{name}。 review_id：{review_id}。 infor_under_name：{infor_under_name}。 rating：{rating}。 response：{response}"))
                     cnt=cnt+1
-                    # print(f"listing_id：{listing_id}。 listing_url：{url_list[i]}。 reviewer_id：{reviewer_id}。 date：{date_text}。 reviewer_name：{name}。 review_id：{review_id}。 location：{location}。 rating：{rating}。 response：{response}")
+                    # print(f"listing_id：{listing_id}。 listing_url：{url_list[i]}。 reviewer_id：{reviewer_id}。 date：{date_text}。 reviewer_name：{name}。 review_id：{review_id}。 infor_under_name：{infor_under_name}。 rating：{rating}。 response：{response}")
                 parsed_data=parse(data)
                 # print(cnt)
                     # writer = csv.DictWriter(file3, fieldnames=fieldnames)
@@ -210,7 +253,10 @@ for i in range(458,500):
                     writer.writerow(row)
                     cnt2=cnt2+1
                 if(cnt!=cnt2):
-                    print(f"cnt: "+cnt+"cnt2: "+cnt2)
+                    print("cnt: ")
+                    print(cnt)
+                    print("cnt2: ")
+                    print(cnt2)
             
     if(except_cnt==2):
         continue
@@ -326,14 +372,23 @@ for i in range(458,500):
         # 注意：这里的选择器需要根据实际网页结构进行调整
             # username = comment.find_element(By.CSS_SELECTOR, "h3.hpipapi").text  
         review_id = comment.get_attribute("data-review-id")
-        location = comment.find_element(By.CSS_SELECTOR, "div.s15w4qkt").text
-        date_text = driver.execute_script(script,comment)
+        infor_under_name = comment.find_element(By.CSS_SELECTOR, "div.s15w4qkt").text
+        
         # for date_text in date_texts:
         #     print(date_text)
         try:
-            rating = comment.find_element(By.CSS_SELECTOR, "span.a8jt5op").text  
+            rating_text = comment.find_element(By.CSS_SELECTOR, "span.a8jt5op").text 
+            if(rating_text==',' or rating_text==""):
+                # date_text=driver.execute_script(script_with_no_ratings,comment)
+                date_text=comment.find_element(By.CSS_SELECTOR,'.s78n3tv').text.split('\n')[0]
+                rating=rating_text
+            else:
+                rating=get_rating(rating_text) 
+                date_text = driver.execute_script(script,comment)
+                
         except NoSuchElementException:
             rating = ""
+            date_text=driver.execute_script(script_with_no_ratings,comment)
         listing_id = url_list[i].split('/')[-1]  # 分割URL并获取最后一部分
         reviewer_id= Extract_userid(comment)
 
@@ -347,8 +402,8 @@ for i in range(458,500):
         except NoSuchElementException:
             response = ""
         finally:
-            data.add(f"listing_id：{listing_id}。 listing_url：{listing_url}。 reviewer_id：{reviewer_id}。 date：{date_text}。 reviewer_name：{name}。 review_id：{review_id}。 location：{location}。 rating：{rating}。 response：{response}")
-                # file2.write(f"listing_id：{listing_id}。 listing_url：{listing_url}。 reviewer_id：{reviewer_id}。 reviewer_name：{name}。 review_id：{review_id}。 location：{location}。 rating：{rating}。 response：{response}\n")
+            data.add(f"listing_id：{listing_id}。 listing_url：{listing_url}。 reviewer_id：{reviewer_id}。 date：{date_text}。 reviewer_name：{name}。 review_id：{review_id}。 infor_under_name：{infor_under_name}。 rating：{rating}。 response：{response}")
+                # file2.write(f"listing_id：{listing_id}。 listing_url：{listing_url}。 reviewer_id：{reviewer_id}。 reviewer_name：{name}。 review_id：{review_id}。 infor_under_name：{infor_under_name}。 rating：{rating}。 response：{response}\n")
 
         cnt=cnt+1
             # file2.write('\n')
@@ -365,11 +420,11 @@ for i in range(458,500):
     parsed_data=parse(data)
         
     # filename = 'Done_NYC_rws4scrape.csv'
-    # fieldnames = ['listing_id', 'listing_url', 'reviewer_id', 'date', 'reviewer_name','review_id', 'location', 'rating', 'response']
+    # fieldnames = ['listing_id', 'listing_url', 'reviewer_id', 'date', 'reviewer_name','review_id', 'infor_under_name', 'rating', 'response']
     # 检查文件是否存在且不为空
     file_exists = os.path.exists(filename) and os.path.getsize(filename) > 0
         # 写入CSV文件
-    with open('Done_NYC_rws4scrape.csv', 'a+', newline='', encoding='utf-8') as file3:
+    with open('prev.csv', 'a+', newline='', encoding='utf-8') as file3:
         writer = csv.DictWriter(file3, fieldnames=fieldnames)
         # 如果文件不存在或为空，则写入header
         if not file_exists:
