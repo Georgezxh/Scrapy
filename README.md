@@ -30,3 +30,9 @@ https://www.airbnb.com/rooms/44377502 Show all 72 reviews 15058
 34
 https://www.airbnb.com/rooms/43547204 Show all 48 reviews 14938
 24                        
+https://www.airbnb.com/rooms/750914635345448241 Show all 142 reviews 23444
+54                     
+https://www.airbnb.com/rooms/633146168446073367 Show all 61 reviews 21058
+24                                                                                                        
+https://www.airbnb.com/rooms/642639503370235908 Show all 115 reviews 21157
+24             
